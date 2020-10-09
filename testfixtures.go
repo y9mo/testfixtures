@@ -54,7 +54,7 @@ var (
 
 // New instantiates a new Loader instance. The "Database" and "Driver"
 // options are required.
-func New(options ...func(*Loader) error) (*Loader, error) {
+func NewLoader(options ...func(*Loader) error) (*Loader, error) {
 	l := &Loader{
 		templateLeftDelim:  "{{",
 		templateRightDelim: "}}",

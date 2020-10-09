@@ -31,6 +31,7 @@ func main() {
 		skipResetSequences    bool
 		resetSequencesTo      int64
 		skipTestDatabaseCheck bool
+		dumpDatabase          bool
 	)
 
 	pflag.BoolVar(&versionFlag, "version", false, "show testfixtures version")
@@ -43,6 +44,7 @@ func main() {
 	pflag.BoolVar(&skipResetSequences, "no-reset-sequences", false, "skip reset of sequences after loading (PostgreSQL only)")
 	pflag.Int64Var(&resetSequencesTo, "reset-sequences-to", 0, "sets the number sequences will be reset after loading fixtures (PostgreSQL only, defaults to 10000)")
 	pflag.BoolVar(&skipTestDatabaseCheck, "dangerous-no-test-database-check", false, `skips check for "test" in database name (use with caution)`)
+	pflag.BoolVar(&dumpDatabase, "dump-database", false, `dump database`)
 	pflag.Parse()
 
 	if versionFlag {
@@ -77,40 +79,63 @@ func main() {
 		return
 	}
 
-	options := []func(*testfixtures.Loader) error{
-		testfixtures.Database(db),
-		testfixtures.Dialect(dialect),
-	}
-	if dir != "" {
-		options = append(options, testfixtures.Directory(dir))
-	}
-	if len(files) > 0 {
-		options = append(options, testfixtures.Files(files...))
-	}
-	if len(paths) > 0 {
-		options = append(options, testfixtures.Paths(paths...))
-	}
-	if useAlterContraint {
-		options = append(options, testfixtures.UseAlterConstraint())
-	}
-	if skipResetSequences {
-		options = append(options, testfixtures.SkipResetSequences())
-	}
-	if resetSequencesTo > 0 {
-		options = append(options, testfixtures.ResetSequencesTo(resetSequencesTo))
-	}
-	if skipTestDatabaseCheck {
-		options = append(options, testfixtures.DangerousSkipTestDatabaseCheck())
+	if !dumpDatabase {
+		options := []func(*testfixtures.Loader) error{
+			testfixtures.Database(db),
+			testfixtures.Dialect(dialect),
+		}
+		if dir != "" {
+			options = append(options, testfixtures.Directory(dir))
+		}
+		if len(files) > 0 {
+			options = append(options, testfixtures.Files(files...))
+		}
+		if len(paths) > 0 {
+			options = append(options, testfixtures.Paths(paths...))
+		}
+		if useAlterContraint {
+			options = append(options, testfixtures.UseAlterConstraint())
+		}
+		if skipResetSequences {
+			options = append(options, testfixtures.SkipResetSequences())
+		}
+		if resetSequencesTo > 0 {
+			options = append(options, testfixtures.ResetSequencesTo(resetSequencesTo))
+		}
+		if skipTestDatabaseCheck {
+			options = append(options, testfixtures.DangerousSkipTestDatabaseCheck())
+		}
+
+		loader, err := testfixtures.NewLoader(options...)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := loader.Load(); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("testfixtures: fixtures loaded successfully")
+
+	} else {
+		options := []func(*testfixtures.Dumper) error{
+			testfixtures.DumpDatabase(db),
+			testfixtures.DumpDialect(dialect),
+		}
+
+		if dir != "" {
+			options = append(options, testfixtures.DumpDirectory(dir))
+		}
+
+		dumper, err := testfixtures.NewDumper(options...)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := dumper.Dump(); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("testfixtures: fixtures successfully dumped")
+
 	}
 
-	loader, err := testfixtures.New(options...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := loader.Load(); err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("testfixtures: fixtures loaded successfully")
 }
 
 func getDialect(dialect string) (string, error) {
